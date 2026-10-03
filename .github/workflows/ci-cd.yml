@@ -37,6 +37,57 @@ jobs:
           PYTHONPATH: src/backend
         run: pytest src/backend/tests -q
 
+      - name: Debug OIDC claims (sub/aud)
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" || -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]]; then
+            echo "OIDC request variables are not available in this run context."
+            exit 0
+          fi
+
+          RESP="$(curl -sS \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com")"
+
+          TOKEN="$(echo "$RESP" | jq -r '.value // empty')"
+          if [[ -z "$TOKEN" ]]; then
+            echo "No OIDC token returned. Full response:"
+            echo "$RESP"
+            exit 0
+          fi
+
+          export TOKEN
+
+          python - <<'PY'
+          import base64
+          import json
+          import os
+
+          token = os.environ["TOKEN"]
+          parts = token.split(".")
+          if len(parts) < 2:
+              print("Invalid JWT format")
+              raise SystemExit(0)
+
+          payload = parts[1]
+          payload += "=" * (-len(payload) % 4)
+          decoded = base64.urlsafe_b64decode(payload.encode("utf-8"))
+          obj = json.loads(decoded.decode("utf-8"))
+          subset = {
+              "iss": obj.get("iss"),
+              "aud": obj.get("aud"),
+              "sub": obj.get("sub"),
+              "repository": obj.get("repository"),
+              "ref": obj.get("ref"),
+              "job_workflow_ref": obj.get("job_workflow_ref"),
+              "environment": obj.get("environment"),
+          }
+          print(json.dumps(subset, indent=2))
+          PY
+          
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
         with:
