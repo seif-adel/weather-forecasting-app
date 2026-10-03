@@ -1,0 +1,2 @@
+If you want to use remote Terraform state, run terraform init with -backend-config values (S3 + DynamoDB lock).
+By default, this project uses local backend.

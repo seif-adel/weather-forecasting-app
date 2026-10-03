@@ -1,0 +1,7 @@
+project_name           = "weather"
+environment            = "dev"
+region                 = "us-east-1"
+rapidapi_key           = "replace-with-your-rapidapi-key"
+rapidapi_host          = "open-weather13.p.rapidapi.com"
+alert_email            = "seif.arabesque@gmail.com"
+allow_public_frontend  = true
